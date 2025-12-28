@@ -13,8 +13,17 @@ import SiliconFabricator from './components/SiliconFabricator';
 import { POSTS } from './constants';
 import { Post } from './types';
 
-// The manual window.aistudio declaration is removed as it conflicts with 
-// the pre-configured global types provided by the environment.
+// Declare the aistudio interface inside declare global to ensure it refers to the same global type
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+  interface Window {
+    // Added optional modifier to align with global property injection patterns
+    aistudio?: AIStudio;
+  }
+}
 
 type View = 'list' | 'post' | 'about';
 
@@ -30,23 +39,27 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkApiKey = async () => {
-      // @ts-ignore - Assuming aistudio is globally available via environment types
       if (window.aistudio) {
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setIsKeySelected(hasKey);
+        try {
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          setIsKeySelected(hasKey);
+        } catch (e) {
+          console.error("Failed to check API key status", e);
+        }
       }
     };
     checkApiKey();
   }, []);
 
   const handleConnectKey = async () => {
-    // @ts-ignore
     if (window.aistudio) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      // Assume the key selection was successful to mitigate potential race conditions
-      setIsKeySelected(true);
+      try {
+        await window.aistudio.openSelectKey();
+        // Race condition mitigation: assume success after call
+        setIsKeySelected(true);
+      } catch (e) {
+        console.error("Failed to open API key selection", e);
+      }
     }
   };
 
