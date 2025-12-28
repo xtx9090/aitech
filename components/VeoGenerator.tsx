@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { GoogleGenAI } from "@google/genai";
 
 interface VeoGeneratorProps {
   title: string;
@@ -10,35 +11,58 @@ const VeoGenerator: React.FC<VeoGeneratorProps> = ({ title }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressText, setProgressText] = useState('');
 
-  const generateVideo = () => {
+  const generateVideo = async () => {
     setIsGenerating(true);
-    setProgressText('INITIALIZING_VEO_RENDERER...');
+    setProgressText('CONNECTING_TO_VEO_RENDERER...');
     
-    setTimeout(() => {
-      setProgressText('ERROR: API_DISABLED_BY_OPERATOR');
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: `A high-tech cinematic scene representing the core concept of "${title}", hyper-realistic, 4k, futuristic, neon details.`,
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: '16:9'
+        }
+      });
+
+      while (!operation.done) {
+        setProgressText(`RENDERING_TEMPORAL_BUFFER... (AWAITING_GPU)`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+      }
+
+      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+      if (downloadLink) {
+        const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        const blob = await response.blob();
+        setVideoUrl(URL.createObjectURL(blob));
+      }
+    } catch (error) {
+      setProgressText('ERROR: VEO_SYNC_FAILED');
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   return (
     <div className="my-10 hud-border bg-black/60 p-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full bg-cyan-500/5 tech-grid opacity-10 pointer-events-none"></div>
-      
-      <div className="flex justify-between items-center mb-6 relative z-10">
+      <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded bg-cyan-950 flex items-center justify-center border border-cyan-500/30">
             <i className="fas fa-video text-cyan-500 text-xs animate-pulse"></i>
           </div>
           <div>
             <h4 className="font-cyber text-[10px] text-white uppercase tracking-widest">Temporal_Visual_Engine</h4>
-            <p className="text-[8px] text-cyan-900 font-cyber">MODEL_VEO_OFFLINE / STATUS: DISABLED</p>
+            <p className="text-[8px] text-cyan-900 font-cyber">Model: VEO_3.1 / Status: Online</p>
           </div>
         </div>
         
         {!videoUrl && !isGenerating && (
           <button 
             onClick={generateVideo}
-            className="px-6 py-2 bg-transparent border border-cyan-500 text-cyan-500 font-cyber text-[9px] hover:bg-cyan-500 hover:text-black transition-all shadow-[0_0_10px_rgba(0,243,255,0.2)]"
+            className="px-6 py-2 bg-transparent border border-cyan-500 text-cyan-500 font-cyber text-[9px] hover:bg-cyan-500 hover:text-black transition-all"
           >
             [MATERIALIZE_CINEMATIC]
           </button>
@@ -48,15 +72,18 @@ const VeoGenerator: React.FC<VeoGeneratorProps> = ({ title }) => {
       {isGenerating && (
         <div className="h-48 flex flex-col items-center justify-center bg-zinc-950/50 border border-dashed border-cyan-900/30">
           <div className="w-3/4 h-1 bg-zinc-900 mb-4 overflow-hidden relative">
-            <div className="absolute inset-0 bg-cyan-500 animate-loading-bar shadow-[0_0_10px_#00f3ff]"></div>
+            <div className="absolute inset-0 bg-cyan-500 animate-loading-bar"></div>
           </div>
           <span className="text-[10px] font-cyber text-cyan-500 animate-pulse">{progressText}</span>
         </div>
       )}
 
       {videoUrl && (
-        <div className="animate-fade-in group">
-          <video src={videoUrl} autoPlay loop muted className="w-full aspect-video object-cover" />
+        <div className="animate-fade-in group relative">
+          <video src={videoUrl} autoPlay loop muted controls className="w-full aspect-video object-cover rounded shadow-[0_0_30px_rgba(0,243,255,0.2)]" />
+          <button onClick={() => setVideoUrl(null)} className="absolute top-2 right-2 p-2 bg-black/60 text-white hover:text-cyan-500 transition-colors">
+             <i className="fas fa-sync-alt"></i>
+          </button>
         </div>
       )}
     </div>
