@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { GoogleGenAI, Modality } from "@google/genai";
 
 interface AIAnalysisConsoleProps {
   content: string;
@@ -12,24 +13,62 @@ const AIAnalysisConsole: React.FC<AIAnalysisConsoleProps> = ({ content, title })
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const runAnalysis = () => {
+  const runAnalysis = async () => {
     setIsAnalyzing(true);
-    setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(p => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setAnalysis("ERROR: API_DISABLED. 智能分析模块目前处于离线状态。");
-          setIsAnalyzing(false);
-          return 100;
-        }
-        return p + 5;
+    setProgress(10);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `为以下科技文章生成一段精炼的、具有洞察力的深度摘要（150字以内）：\n\n标题: ${title}\n内容: ${content}`,
       });
-    }, 100);
+      setProgress(100);
+      setAnalysis(response.text || '摘要生成失败。');
+    } catch (error) {
+      setAnalysis('核心算力链路故障，请稍后重试。');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const playVoice = () => {
-    alert("SYSTEM_MESSAGE: 语音合成引擎已禁用。");
+  const playVoice = async () => {
+    if (!analysis) return;
+    setIsSynthesizing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `请用专业且富有科技感的语气播报：${analysis}` }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+          },
+        },
+      });
+
+      const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (audioData) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const binary = atob(audioData);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        
+        const dataInt16 = new Int16Array(bytes.buffer);
+        const buffer = audioContext.createBuffer(1, dataInt16.length, 24000);
+        const channelData = buffer.getChannelData(0);
+        for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
+
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        source.onended = () => setIsSynthesizing(false);
+      }
+    } catch (error) {
+      console.error(error);
+      setIsSynthesizing(false);
+    }
   };
 
   return (
@@ -41,7 +80,7 @@ const AIAnalysisConsole: React.FC<AIAnalysisConsoleProps> = ({ content, title })
           <h4 className="text-cyan-400 font-cyber text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
             <i className="fas fa-brain animate-pulse"></i> Intelligent_Neural_Summary
           </h4>
-          <p className="text-[10px] text-zinc-500 font-cyber">MODEL: GEMINI_OFFLINE / STATUS: DISABLED</p>
+          <p className="text-[10px] text-zinc-500 font-cyber uppercase">Model: Gemini_3_Flash / Status: Nominal</p>
         </div>
         
         {!analysis && !isAnalyzing && (
@@ -61,7 +100,7 @@ const AIAnalysisConsole: React.FC<AIAnalysisConsoleProps> = ({ content, title })
           </div>
           <div className="font-cyber text-[9px] text-cyan-800 flex justify-between">
             <span>SCRAPING_NEURAL_NODES...</span>
-            <span>{Math.round(progress)}%</span>
+            <span>{progress}%</span>
           </div>
         </div>
       )}
@@ -70,7 +109,6 @@ const AIAnalysisConsole: React.FC<AIAnalysisConsoleProps> = ({ content, title })
         <div className="animate-fade-in relative">
           <div className="absolute -left-6 top-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-500 to-transparent"></div>
           <div className="text-zinc-300 text-sm leading-relaxed italic border-l border-cyan-900/50 pl-4 py-2 bg-black/20 mb-4">
-            <span className="text-cyan-500 font-cyber text-[10px] block mb-2 uppercase tracking-tighter">/ System_Notice /</span>
             {analysis}
           </div>
           <div className="flex flex-wrap gap-6 items-center">
@@ -82,12 +120,6 @@ const AIAnalysisConsole: React.FC<AIAnalysisConsoleProps> = ({ content, title })
               <i className={`fas ${isSynthesizing ? 'fa-spinner fa-spin' : 'fa-volume-up'}`}></i> 
               {isSynthesizing ? 'SYNTHESIZING...' : 'LISTEN_TO_INTEL'}
             </button>
-            <div className="text-[8px] font-cyber text-zinc-600">
-              COMPLEXITY: <span className="text-purple-500">N/A</span>
-            </div>
-            <div className="text-[8px] font-cyber text-zinc-600">
-              SAFETY_STATUS: <span className="text-cyan-500">OFFLINE</span>
-            </div>
           </div>
         </div>
       )}
