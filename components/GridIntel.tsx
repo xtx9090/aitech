@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { GoogleGenAI } from "@google/genai";
 
 interface IntelItem {
   title: string;
@@ -11,23 +12,31 @@ const GridIntel: React.FC = () => {
   const [intel, setIntel] = useState<IntelItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchGlobalIntel = () => {
+  const fetchGlobalIntel = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIntel([
-        {
-          title: "API_CONNECTION_DISABLED",
-          snippet: "外部情报抓取模块已根据系统策略禁用。",
-          url: "#"
-        },
-        {
-          title: "LOCAL_CACHE_EMPTY",
-          snippet: "未检测到本地缓存的情报数据包。",
-          url: "#"
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: "提供三条关于 AGI、量子计算或自动驾驶的最新全球科技头条消息，包含简短摘要。",
+        config: {
+          tools: [{ googleSearch: {} }]
         }
-      ]);
+      });
+
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const formatted = chunks.filter(c => c.web).slice(0, 3).map(c => ({
+        title: c.web.title,
+        snippet: "点击查看详细情报流...",
+        url: c.web.uri
+      }));
+      
+      setIntel(formatted.length > 0 ? formatted : [{ title: "FEED_IDLE", snippet: "当前暂无高优先级情报更新。", url: "#" }]);
+    } catch (error) {
+      setIntel([{ title: "UPLINK_FAILURE", snippet: "情报卫星连接中断。", url: "#" }]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   useEffect(() => {
@@ -48,7 +57,7 @@ const GridIntel: React.FC = () => {
       <div className="space-y-6">
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2].map(i => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="animate-pulse space-y-2">
                 <div className="h-2 w-2/3 bg-emerald-900/30 rounded"></div>
                 <div className="h-2 w-full bg-emerald-900/10 rounded"></div>
@@ -69,11 +78,6 @@ const GridIntel: React.FC = () => {
             </div>
           ))
         )}
-      </div>
-      
-      <div className="mt-6 pt-4 border-t border-emerald-900/10 flex justify-between items-center">
-        <span className="text-[8px] font-cyber text-zinc-700 uppercase tracking-widest">Latency: 0ms</span>
-        <span className="text-[8px] font-cyber text-emerald-900">OFFLINE_MODE</span>
       </div>
     </div>
   );
