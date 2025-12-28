@@ -13,14 +13,15 @@ import SiliconFabricator from './components/SiliconFabricator';
 import { POSTS } from './constants';
 import { Post } from './types';
 
-// Declare the aistudio interface inside declare global to ensure it refers to the same global type
+// Declare process for global availability in the browser environment
+declare var process: { env: { API_KEY: string } };
+
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;
   }
   interface Window {
-    // Added optional modifier to align with global property injection patterns
     aistudio?: AIStudio;
   }
 }
@@ -55,7 +56,6 @@ const App: React.FC = () => {
     if (window.aistudio) {
       try {
         await window.aistudio.openSelectKey();
-        // Race condition mitigation: assume success after call
         setIsKeySelected(true);
       } catch (e) {
         console.error("Failed to open API key selection", e);
