@@ -1,0 +1,10 @@
+
+{
+  "name": "智芯视界 (IntelliCore Horizon)",
+  "description": "一个专注于通用人工智能 (AGI)、大语言模型 (LLM) 和前沿芯片技术的深度科技博客，探索硅基文明的无限可能。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
