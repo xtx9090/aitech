@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { SITE_NAME, SITE_SUBTITLE, POSTS } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { SITE_NAME, SITE_SUBTITLE } from '../constants';
 import { GoogleGenAI } from "@google/genai";
 
 interface HeaderProps {
@@ -36,6 +36,7 @@ const Header: React.FC<HeaderProps> = ({ onHome, onAbout }) => {
     setAiAnalysis('');
 
     try {
+      // Create a new instance directly before use to ensure the latest API key is used
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -83,6 +84,7 @@ const Header: React.FC<HeaderProps> = ({ onHome, onAbout }) => {
             <button onClick={() => setIsSearchOpen(true)} className="text-cyan-400 hover:scale-110 transition-transform p-2 bg-cyan-950/20 border border-cyan-900/30 rounded shadow-[0_0_15px_rgba(0,243,255,0.1)]">
               <i className="fas fa-satellite-dish"></i>
             </button>
+            <button onClick={onAbout} className="text-xs font-cyber text-zinc-400 hover:text-white transition-colors">ABOUT</button>
           </div>
         </nav>
       </header>

@@ -40,6 +40,7 @@ const VeoGenerator: React.FC<VeoGeneratorProps> = ({ title }) => {
         setVideoUrl(URL.createObjectURL(blob));
       }
     } catch (error) {
+      console.error("Video generation failed", error);
       setProgressText('ERROR: VEO_SYNC_FAILED');
     } finally {
       setIsGenerating(false);

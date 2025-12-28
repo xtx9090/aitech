@@ -13,9 +13,6 @@ import SiliconFabricator from './components/SiliconFabricator';
 import { POSTS } from './constants';
 import { Post } from './types';
 
-// Declare process for global availability in the browser environment
-declare var process: { env: { API_KEY: string } };
-
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
@@ -23,6 +20,11 @@ declare global {
   }
   interface Window {
     aistudio?: AIStudio;
+  }
+  namespace NodeJS {
+    interface ProcessEnv {
+      API_KEY: string;
+    }
   }
 }
 
@@ -47,6 +49,9 @@ const App: React.FC = () => {
         } catch (e) {
           console.error("Failed to check API key status", e);
         }
+      } else {
+        const key = typeof process !== 'undefined' ? process.env.API_KEY : '';
+        setIsKeySelected(!!key);
       }
     };
     checkApiKey();
@@ -101,7 +106,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen relative z-10 ${isDarkMode ? 'dark bg-[#050b15] text-zinc-100' : 'bg-gray-50 text-gray-800'}`}>
-      {!isKeySelected && (
+      {!isKeySelected && window.aistudio && (
         <div className="fixed inset-0 z-[2000] bg-[#050b15]/95 backdrop-blur-3xl flex items-center justify-center p-6 text-center">
           <div className="max-w-md space-y-8 hud-border p-10 bg-black/60 shadow-[0_0_100px_rgba(0,243,255,0.2)]">
             <div className="w-20 h-20 bg-cyan-950 rounded-full flex items-center justify-center mx-auto border border-cyan-500/30 animate-pulse">
@@ -112,9 +117,6 @@ const App: React.FC = () => {
               <p className="text-sm text-zinc-400 leading-relaxed">
                 为了体验全功能的视频生成与 AGI 模拟器，请连接您的 Google AI Studio 结算项目 API Key。
               </p>
-              <div className="bg-cyan-950/20 p-4 border-l-2 border-cyan-500 text-[10px] text-cyan-800 font-cyber">
-                NOTICE: 系统将直接使用浏览器环境注入的凭证。
-              </div>
             </div>
             <button 
               onClick={handleConnectKey}
@@ -123,7 +125,7 @@ const App: React.FC = () => {
               [ CONNECT_NEURAL_LINK ]
             </button>
             <p className="text-[10px] text-zinc-600">
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="hover:text-cyan-500 underline">查看计费文档</a>
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-500 underline">查看计费文档</a>
             </p>
           </div>
         </div>
